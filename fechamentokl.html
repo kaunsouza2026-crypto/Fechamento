@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fechamento da Discadora</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:20px;background:#f3f5f9;color:#172033;font:15px Arial,sans-serif}main{max-width:720px;margin:auto}.card{background:white;border:1px solid #e5e9f0;border-radius:16px;padding:20px;margin:12px 0}h1{margin:0 0 6px;font-size:25px}.sub{color:#687386}label{display:block;font-size:13px;font-weight:bold;margin:10px 0 5px}input{width:100%;padding:12px;border:1px solid #d8deea;border-radius:9px;font-size:16px}.entry{display:grid;grid-template-columns:1fr 1.1fr .7fr auto;gap:8px;align-items:end;padding:8px 0;border-bottom:1px solid #edf0f5}.entry label{margin-top:0}button{border:0;border-radius:9px;padding:12px 15px;font-weight:bold;cursor:pointer}.add{background:#edf2ff;color:#244bb5;margin-top:12px}.remove{background:#fff0f0;color:#b42318}.primary{background:#2457d6;color:white;width:100%;margin-top:14px}.result{background:#f7f9fc;border-radius:12px;padding:14px;margin-top:10px}.line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #e7ebf2}.line:last-child{border:0}.big{font-size:23px;color:#16794b}#message{white-space:pre-wrap;background:#f7f9fc;border:1px solid #e5e9f0;border-radius:12px;padding:16px;line-height:1.55}.note{font-size:12px;color:#687386;line-height:1.4}@media(max-width:520px){body{padding:10px}.card{padding:15px}.entry{grid-template-columns:1fr 1fr;}.entry .remove{grid-column:2;justify-self:end}}
+</style></head>
+<body><main>
+<section class="card">
+<h1>Fechamento da Discadora</h1><p class="sub">Cada valor tem o nome e o percentual do seu Tripa. Seu percentual é informado uma única vez.</p>
+<label>Nome do fechamento</label><input id="name" value="FECHAMENTO DA DISCADORA">
+<label>Data</label><input id="date" type="date">
+<label>Valores recebidos e percentual do Tripa</label>
+<div id="values">
+<div class="entry"><div><label>Nome do Tripa</label><input class="person" placeholder="Ex.: Tripa"></div><div><label>Valor recebido (R$)</label><input class="amount" inputmode="decimal" placeholder="Ex.: 2.048,00"></div><div><label>Tripa (%)</label><input class="rate" type="number" min="0" max="100" step=".01" value="30"></div><button class="remove" onclick="removeRow(this)">×</button></div>
+<div class="entry"><div><label>Nome do Tripa</label><input class="person" placeholder="Ex.: Tripa"></div><div><label>Valor recebido (R$)</label><input class="amount" inputmode="decimal" placeholder="Ex.: 1.837,00"></div><div><label>Tripa (%)</label><input class="rate" type="number" min="0" max="100" step=".01" value="30"></div><button class="remove" onclick="removeRow(this)">×</button></div>
+</div>
+<button class="add" onclick="addRow()">＋ Adicionar valor</button>
+<label>Meu percentual (informar uma única vez)</label><input id="ours" type="number" min="0" max="100" step=".01" value="20">
+<button class="primary" onclick="calculate()">Calcular fechamento</button>
+</section>
+<section class="card" id="results" hidden>
+<h2>Resumo do cálculo</h2><div id="breakdown" class="result"></div>
+<label>Mensagem pronta para WhatsApp</label><div id="message"></div>
+<button class="primary" onclick="copyMessage()">Copiar mensagem</button>
+<p class="note">O percentual de cada Tripa é calculado separadamente em cada valor. Seu percentual é aplicado uma única vez sobre a soma que sobra após os descontos do Tripa.</p>
+</section></main>
+<script>
+const brl=n=>n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+function parseMoney(v){if(!v)return 0;let s=String(v).trim().replace(/\s/g,'').replace(/^R\$/i,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');let n=Number(s);return Number.isFinite(n)?n:NaN}
+function addRow(){let d=document.createElement('div');d.className='entry';d.innerHTML='<div><label>Nome do Tripa</label><input class="person" placeholder="Ex.: Tripa"></div><div><label>Valor recebido (R$)</label><input class="amount" inputmode="decimal" placeholder="Ex.: 500,00"></div><div><label>Tripa (%)</label><input class="rate" type="number" min="0" max="100" step=".01" value="30"></div><button class="remove" onclick="removeRow(this)">×</button>';document.getElementById('values').appendChild(d)}
+function removeRow(b){if(document.querySelectorAll('.entry').length>1)b.parentElement.remove()}
+function calculate(){
+ const rows=[...document.querySelectorAll('.entry')],entries=rows.map(r=>({person:r.querySelector('.person').value.trim()||'Tripa',raw:r.querySelector('.amount').value.trim(),amount:parseMoney(r.querySelector('.amount').value),rate:Number(r.querySelector('.rate').value)}));
+ if(entries.some(e=>e.raw&&Number.isNaN(e.amount))){alert('Confira os valores digitados.');return}
+ const valid=entries.filter(e=>e.raw);if(!valid.length){alert('Digite pelo menos um valor.');return}
+ if(valid.some(e=>!Number.isFinite(e.rate)||e.rate<0||e.rate>100)){alert('Confira os percentuais do Tripa.');return}
+ const op=Number(document.getElementById('ours').value);if(!Number.isFinite(op)||op<0||op>100){alert('Confira seu percentual.');return}
+ const total=valid.reduce((s,e)=>s+e.amount,0),details=valid.map(e=>({...e,tripa:e.amount*e.rate/100,net:e.amount*(1-e.rate/100)}));
+ const tripa=details.reduce((s,e)=>s+e.tripa,0),after=details.reduce((s,e)=>s+e.net,0),mine=after*op/100,remaining=after-mine;
+ const date=document.getElementById('date').value,ds=date?new Date(date+'T12:00:00').toLocaleDateString('pt-BR'):new Date().toLocaleDateString('pt-BR'),title=document.getElementById('name').value.trim()||'FECHAMENTO DA DISCADORA';
+ document.getElementById('breakdown').innerHTML=details.map((e,i)=>`<div class="line"><span>Valor ${i+1} — ${e.person} (${e.rate}%)</span><strong>${brl(e.tripa)}</strong></div>`).join('')+`<div class="line"><span>Total bruto</span><strong>${brl(total)}</strong></div><div class="line"><span>Total do Tripa</span><strong>${brl(tripa)}</strong></div><div class="line"><span>Após Tripa</span><strong>${brl(after)}</strong></div><div class="line"><span>Meu percentual (${op}%)</span><strong>${brl(mine)}</strong></div><div class="line"><strong>Resultado final nosso</strong><strong class="big">${brl(remaining)}</strong></div>`;
+ let msg=`📊 *${title} — ${ds}*\n\n💰 *VALORES RECEBIDOS*\n${details.map(e=>`• ${brl(e.amount)} → ${e.person} (${e.rate}%): ${brl(e.tripa)}\n  Líquido: ${brl(e.net)}`).join('\n')}\n\n*Total bruto: ${brl(total)}*\n*Total do Tripa: ${brl(tripa)}*\n*Total após Tripa: ${brl(after)}*\n\n━━━━━━━━━━━━━━━━━━\n\n📌 *NOSSA DIVISÃO*\n• Meu percentual (${op}%, aplicado uma vez): ${brl(mine)}\n• Nosso restante: ${brl(remaining)}\n\n━━━━━━━━━━━━━━━━━━\n\n✅ *RESULTADO FINAL NOSSO:*\n💰 *${brl(remaining)}*`;
+ document.getElementById('message').textContent=msg;document.getElementById('results').hidden=false;
+}
+async function copyMessage(){try{await navigator.clipboard.writeText(document.getElementById('message').textContent);alert('Mensagem copiada! Cole no WhatsApp.')}catch(e){alert('Não foi possível copiar automaticamente. Selecione a mensagem e copie.')}}
+document.getElementById('date').value=new Date().toISOString().slice(0,10);
+</script></body></html>
